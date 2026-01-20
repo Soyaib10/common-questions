@@ -246,22 +246,4 @@ This is how systems like Cassandra, CockroachDB, and Google Spanner work. They t
 | **Quorum** | Durability in the cloud (saving to multiple servers) |
 | **Torn Page** | Hardware-level corruption during the write process |
 
----
 
-# Advanced Topics (Would you like to go deeper?)
-
-We have covered the software side of durability. The final frontier is the Hardware.
-
-## Potential Next Topics:
-
-### 1. Bit Rot & Checksums
-How databases detect when a single bit flips on the hard drive due to cosmic rays or magnetic decay.
-
-### 2. SSD Wear Leveling
-How modern drives physically degrade and how databases try not to kill your SSDs.
-
-### 3. Erasure Coding
-Going beyond simple replication to achieve durability with less storage overhead.
-
-### 4. Consensus Algorithms (Raft, Paxos)
-How distributed databases achieve durability and consistency across many nodes.
