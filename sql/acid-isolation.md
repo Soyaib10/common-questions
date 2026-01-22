@@ -1,9 +1,4 @@
 That is a completely fair request. Database isolation is arguably the single most confusing topic in backend engineering because it involves multiple timelines happening at once.
-
-Let's restructure this exactly as you asked. We will separate the **"Illness" (The Problems)** from the **"Cure" (The Isolation Levels)**, and then we will pair them up one by one with a real-world story.
-
----
-
 ### Part 1: The Lists (Reference Guide)
 
 Before we dive in, here is the cheat sheet of terms we will use.
