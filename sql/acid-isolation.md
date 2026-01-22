@@ -1,4 +1,3 @@
-That is a completely fair request. Database isolation is arguably the single most confusing topic in backend engineering because it involves multiple timelines happening at once.
 ### Part 1: The Lists (Reference Guide)
 
 Before we dive in, here is the cheat sheet of terms we will use.
