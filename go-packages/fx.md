@@ -1,6 +1,3 @@
-অবশ্যই, বাংলায় ব্যাখ্যা দেওয়া হলো। কোডের অংশ ইংরেজিতেই থাকবে যেমন আপনি চেয়েছেন।
-
----
 
 # Uber FX: গোছানো নোট (বাংলায়)
 
@@ -227,4 +224,250 @@ type ManagerDeps struct {
 func NewManager(deps ManagerDeps) *Manager {
     // ...
 }
+```
+
+
+## More explanation 
+### ২. Annotate কী?
+
+**কাজ:** একটি ফাংশনের গায়ে বাড়তি নির্দেশনা (টীকা) লাগানো।
+
+**গঠন:**
+```go
+fx.Annotate(
+    তোমার ফাংশন,
+    fx.As(...),        // টীকা ১
+    fx.ResultTags(...), // টীকা ২
+    // ... আরও টীকা
+)
+```
+
+---
+
+### ৩. As কী?
+
+**কাজ:** একটি কংক্রিট টাইপকে (struct) ইন্টারফেস হিসেবে রেজিস্টার করা।
+
+**গঠন:**
+```go
+fx.As(new(ইন্টারফেসের_নাম))
+```
+
+**উদাহরণ:**
+```go
+fx.Annotate(
+    NewAuthService,
+    fx.As(new(auth_ports.AuthService)),
+)
+```
+
+---
+
+### ৪. কখন As লাগে আর কখন লাগে না
+
+#### পরিস্থিতি ১: As লাগে না
+
+```go
+// ফাংশন নিজেই ইন্টারফেস রিটার্ন করছে
+func NewAuthService() auth_ports.AuthService {
+    return &AuthService{}
+}
+
+// Fx-তে সরাসরি ব্যবহার
+fx.Provide(NewAuthService)  // ✅ As লাগবে না
+```
+
+#### পরিস্থিতি ২: As লাগে
+
+```go
+// ফাংশন কংক্রিট struct রিটার্ন করছে
+func NewAuthService() *AuthService {
+    return &AuthService{}
+}
+
+// Fx-তে ইন্টারফেস হিসেবে রেজিস্টার করতে As লাগবে
+fx.Provide(
+    fx.Annotate(
+        NewAuthService,
+        fx.As(new(auth_ports.AuthService)),  // ✅ এটা লাগবে
+    ),
+)
+```
+
+#### পরিস্থিতি ৩: একাধিক ইন্টারফেসের জন্য As
+
+```go
+type Reader interface { Read() }
+type Writer interface { Write() }
+
+type File struct{}
+
+func NewFile() *File {
+    return &File{}
+}
+
+fx.Provide(
+    fx.Annotate(
+        NewFile,
+        fx.As(new(Reader)),  // File কে Reader হিসেবেও চিনবে
+        fx.As(new(Writer)),  // File কে Writer হিসেবেও চিনবে
+    ),
+)
+```
+
+---
+
+### ৫. ResultTags কী?
+
+**কাজ:** রিটার্ন করা জিনিসের গায়ে নামের তকমা লাগানো।
+
+**গঠন:**
+```go
+fx.ResultTags(`name:"তোমার_নাম"`)
+```
+
+**উদাহরণ:**
+```go
+fx.Annotate(
+    NewAuthService,
+    fx.ResultTags(`name:"primary_auth"`),
+)
+
+// পরে অন্য জায়গায় ব্যবহার
+func NewController(authSvc auth_ports.AuthService) *Controller {
+    return &Controller{authSvc: authSvc}
+}
+
+// Fx-তে
+fx.Provide(
+    fx.Annotate(
+        NewController,
+        fx.ParamTags(`name:"primary_auth"`),  // নির্দিষ্ট নামের জিনিস চাওয়া
+    ),
+)
+```
+
+---
+
+### ৬. ParamTags কী?
+
+**কাজ:** ফাংশনের ইনপুট প্যারামিটার কোন তকমার জিনিস নেবে তা ঠিক করা।
+
+**গঠন:**
+```go
+fx.ParamTags(`name:"তোমার_নাম"`)
+```
+
+**উদাহরণ:**
+```go
+// দুইটা আলাদা ডাটাবেজ কানেকশন
+fx.Provide(
+    fx.Annotate(NewUserDB, fx.ResultTags(`name:"user_db"`)),
+    fx.Annotate(NewOrderDB, fx.ResultTags(`name:"order_db"`)),
+)
+
+// নির্দিষ্ট ডাটাবেজ চাওয়া
+fx.Provide(
+    fx.Annotate(
+        NewUserService,
+        fx.ParamTags(`name:"user_db"`),  // user_db নামের কানেকশন নেবে
+    ),
+)
+```
+
+---
+
+### ৭. পুরো উদাহরণ একসাথে
+
+```go
+package main
+
+import "go.uber.org/fx"
+
+// ========== ইন্টারফেস ==========
+type AuthService interface {
+    Login() string
+}
+
+// ========== বাস্তবায়ন ==========
+type authService struct{}
+
+func (a *authService) Login() string {
+    return "logged in"
+}
+
+// ========== কনস্ট্রাক্টর ==========
+func NewAuthService() *authService {
+    return &authService{}
+}
+
+func NewController(svc AuthService) *Controller {
+    return &Controller{svc: svc}
+}
+
+// ========== Controller ==========
+type Controller struct {
+    svc AuthService
+}
+
+// ========== Fx মডিউল ==========
+var Module = fx.Options(
+    fx.Provide(
+        fx.Annotate(
+            NewAuthService,                     // আসল ফাংশন (*authService রিটার্ন করে)
+            fx.As(new(AuthService)),            // Interface হিসেবে রেজিস্টার
+            fx.ResultTags(`name:"main_auth"`),  // নামের তকমা
+        ),
+    ),
+    fx.Provide(
+        fx.Annotate(
+            NewController,
+            fx.ParamTags(`name:"main_auth"`),   // নির্দিষ্ট তকমার জিনিস নেবে
+        ),
+    ),
+)
+
+func main() {
+    fx.New(Module).Run()
+}
+```
+
+---
+
+### ৮. মনে রাখার সহজ সূত্র
+
+| টার্ম | কী নেয় | কী করে |
+|:---|:---|:---|
+| `fx.Annotate` | ফাংশন + টীকাসমূহ | ফাংশনে টীকা লাগায় |
+| `fx.As` | `new(Interface)` | Struct → Interface রূপান্তর |
+| `fx.ResultTags` | `` `name:"x"` `` | রিটার্নে তকমা লাগায় |
+| `fx.ParamTags` | `` `name:"x"` `` | ইনপুটে নির্দিষ্ট তকমার জিনিস চায় |
+
+---
+
+### ৯. কখন কী লাগবে - চেকলিস্ট
+
+```go
+// ✅ লাগবে না
+func New() MyInterface { return &myStruct{} }
+fx.Provide(New)
+
+// ✅ লাগবে
+func New() *myStruct { return &myStruct{} }
+fx.Provide(fx.Annotate(New, fx.As(new(MyInterface))))
+
+// ✅ একাধিক ইন্টারফেস
+func New() *myStruct { return &myStruct{} }
+fx.Provide(fx.Annotate(New, 
+    fx.As(new(InterfaceA)), 
+    fx.As(new(InterfaceB)),
+))
+
+// ✅ নামের তকমা লাগবে
+func New() *myStruct { return &myStruct{} }
+fx.Provide(fx.Annotate(New, fx.ResultTags(`name:"primary"`)))
+
+// ✅ নির্দিষ্ট নামের জিনিস চাই
+func NewController(svc MyInterface) *Controller { return &Controller{svc} }
+fx.Provide(fx.Annotate(NewController, fx.ParamTags(`name:"primary"`)))
 ```
